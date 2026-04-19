@@ -1,16 +1,17 @@
 "use client"
 
 import { useCallback, useState } from "react"
-import { Upload, X, FileIcon } from "lucide-react"
+import { Upload, X, FileIcon, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface FileDropZoneProps {
-  onFileSelect: (file: File) => void
-  file: File | null
-  onClear: () => void
+  onFileSelect: (files: File[]) => void
+  files: File[]
+  onRemoveFile: (index: number) => void
+  onClearAll: () => void
 }
 
-export function FileDropZone({ onFileSelect, file, onClear }: FileDropZoneProps) {
+export function FileDropZone({ onFileSelect, files, onRemoveFile, onClearAll }: FileDropZoneProps) {
   const [isDragging, setIsDragging] = useState(false)
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -27,22 +28,24 @@ export function FileDropZone({ onFileSelect, file, onClear }: FileDropZoneProps)
     (e: React.DragEvent) => {
       e.preventDefault()
       setIsDragging(false)
-      const droppedFile = e.dataTransfer.files[0]
-      if (droppedFile) {
-        onFileSelect(droppedFile)
+      const droppedFiles = Array.from(e.dataTransfer.files)
+      if (droppedFiles.length > 0) {
+        onFileSelect([...files, ...droppedFiles])
       }
     },
-    [onFileSelect]
+    [files, onFileSelect]
   )
 
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      const selectedFile = e.target.files?.[0]
-      if (selectedFile) {
-        onFileSelect(selectedFile)
+      const selectedFiles = Array.from(e.target.files || [])
+      if (selectedFiles.length > 0) {
+        onFileSelect([...files, ...selectedFiles])
       }
+      // Reset input so the same file can be selected again
+      e.target.value = ""
     },
-    [onFileSelect]
+    [files, onFileSelect]
   )
 
   const formatFileSize = (bytes: number) => {
@@ -57,27 +60,53 @@ export function FileDropZone({ onFileSelect, file, onClear }: FileDropZoneProps)
     return filename.split(".").pop()?.toUpperCase() || "FILE"
   }
 
-  if (file) {
+  if (files.length > 0) {
     return (
-      <div className="relative border-2 border-border bg-card p-6 rounded-lg">
-        <button
-          onClick={onClear}
-          className="absolute top-3 right-3 p-1 hover:bg-muted rounded-full transition-colors"
-          aria-label="Remove file"
-        >
-          <X className="w-5 h-5 text-muted-foreground" />
-        </button>
-        <div className="flex items-center gap-4">
-          <div className="flex-shrink-0 w-14 h-14 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-primary-foreground text-xs font-bold">
-              {getFileExtension(file.name)}
-            </span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-foreground font-medium truncate">{file.name}</p>
-            <p className="text-muted-foreground text-sm">{formatFileSize(file.size)}</p>
-          </div>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm font-medium text-foreground">{files.length} file(s) selected</p>
+          <button
+            onClick={onClearAll}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Clear All
+          </button>
         </div>
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {files.map((file, index) => (
+            <div key={`${file.name}-${index}`} className="relative border-2 border-border bg-card p-4 rounded-lg hover:border-accent transition-colors">
+              <button
+                onClick={() => onRemoveFile(index)}
+                className="absolute top-2 right-2 p-1 hover:bg-muted rounded-full transition-colors"
+                aria-label="Remove file"
+              >
+                <X className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <div className="flex items-center gap-3 pr-8">
+                <div className="flex-shrink-0 w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                  <span className="text-primary-foreground text-xs font-bold">
+                    {getFileExtension(file.name)}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-foreground font-medium truncate text-sm">{file.name}</p>
+                  <p className="text-muted-foreground text-xs">{formatFileSize(file.size)}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <label className="flex items-center justify-center gap-2 border-2 border-dashed border-border rounded-lg p-4 cursor-pointer hover:border-accent hover:bg-accent/5 transition-all">
+          <input
+            type="file"
+            multiple
+            onChange={handleFileInput}
+            className="hidden"
+            aria-label="Add more files"
+          />
+          <Plus className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground font-medium">Add more files</span>
+        </label>
       </div>
     )
   }
@@ -94,9 +123,10 @@ export function FileDropZone({ onFileSelect, file, onClear }: FileDropZoneProps)
     >
       <input
         type="file"
+        multiple
         onChange={handleFileInput}
         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-        aria-label="Upload file"
+        aria-label="Upload files"
       />
       <div className="flex flex-col items-center justify-center text-center gap-4">
         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -104,10 +134,10 @@ export function FileDropZone({ onFileSelect, file, onClear }: FileDropZoneProps)
         </div>
         <div>
           <p className="text-foreground font-semibold text-lg">
-            Drag & Drop a file here
+            Drag & Drop files here
           </p>
           <p className="text-muted-foreground mt-1">
-            or click to browse from your computer
+            or click to browse from your computer. Select multiple files to convert them all at once.
           </p>
         </div>
       </div>
